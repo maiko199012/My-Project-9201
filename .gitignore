@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -14,11 +15,15 @@
 /coverage
 
 # next.js
-/.next/
+.next/
 /out/
 
 # production
 /build
+
+# package build output
+dist/
+*.tgz
 
 # misc
 .DS_Store
@@ -32,6 +37,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.local.example
 
 # vercel
 .vercel
@@ -39,3 +45,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code(個人ローカル設定のみ除外)
+.claude/settings.local.json
+
+# AI / MCP 作業残骸
+.playwright-mcp/
+skills-lock.json
+
+# 内部作業ディレクトリ(コミット対象外)
+.plans/

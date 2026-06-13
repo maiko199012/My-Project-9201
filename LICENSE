@@ -1,0 +1,59 @@
+CodeNow Commercial License
+
+Copyright (c) 2026 Cloud Position, Inc.
+
+This software and associated documentation files (the "Software") are made
+available only to people or organizations that have purchased or otherwise
+received explicit access from Cloud Position, Inc. (the "Licensee").
+
+1. Grant of Rights
+
+Cloud Position, Inc. grants the Licensee a non-exclusive, non-transferable,
+perpetual license to use, copy, modify, and deploy the Software for the
+Licensee's own products, client work, internal tools, and other commercial or
+non-commercial projects.
+
+The Licensee may create and operate any number of products or projects using
+the Software.
+
+2. Restrictions
+
+The Licensee may not:
+
+- publish, distribute, sublicense, resell, lease, or otherwise provide the
+  Software, in whole or in part, as source code or as a starter kit;
+- upload the Software, in whole or in part, to a public repository or public
+  package registry;
+- share repository access with people or organizations that have not been
+  granted access by Cloud Position, Inc.;
+- remove copyright, license, or proprietary notices from the Software.
+
+These restrictions do not prevent the Licensee from distributing compiled or
+hosted applications built with the Software, as long as the Software itself is
+not distributed as a reusable starter kit, template, library, or source-code
+package.
+
+3. Updates and Support
+
+Cloud Position, Inc. may provide updates, fixes, guides, or support materials
+to Licensees with repository access. Access to future updates is provided
+through the private repository while the Licensee retains access.
+
+4. No Warranty
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL
+CLOUD POSITION, INC. OR THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM,
+OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+5. Termination
+
+If the Licensee violates this license, the rights granted under this license
+terminate automatically. Cloud Position, Inc. may revoke repository access for
+violations of this license.
+
+This license is not legal advice. For legally binding production use, have the
+license reviewed by a qualified legal professional.
