@@ -99,6 +99,28 @@
 
 ---
 
+## ストレージ設計
+
+### Supabase Storage バケット
+
+| バケット名 | 公開 | 用途 | サイズ上限 | 許可形式 |
+|---|---|---|---|---|
+| `product-images` | ✅ 公開 | 商品サムネイル画像 | 5 MB | JPEG / PNG / WebP / GIF |
+| `product-files` | 🔒 非公開 | 販売ファイル（PDF / ZIP など） | 500 MB | 制限なし |
+
+**ファイルパス構造:** `{user_id}/{filename}`
+
+**アクセス制御（Storage RLS）:**
+
+| バケット | 操作 | 誰が |
+|---|---|---|
+| product-images | SELECT | 全員（未ログイン含む） |
+| product-images | INSERT / UPDATE / DELETE | 認証済みユーザー（自分のフォルダのみ） |
+| product-files | INSERT | 認証済みユーザー（自分のフォルダのみ） |
+| product-files | SELECT | Route Handler のみ（Day 5 で実装） |
+
+---
+
 ## データベース設計
 
 ### `profiles`（スターター実装済み）
@@ -128,21 +150,21 @@
 
 ### `products`
 
-`owner_id` により所有者を特定し、「自分の商品しか編集できない」ルールをアプリ側で実現する。
+`user_id` により所有者を特定し、「自分の商品しか編集できない」ルールをアプリ側で実現する。
+ファイル・画像は Supabase Storage に保存し、パス（キー）のみ DB に持つ。
 
 | カラム | 型 | 内容 |
 |---|---|---|
-| id | TEXT PK | |
-| owner_id | TEXT FK | → profiles.id（商品の持ち主） |
-| title | TEXT | 商品名 |
+| id | UUID PK | `gen_random_uuid()` 自動生成 |
+| user_id | UUID FK | → auth.users.id（商品の持ち主） |
+| title | TEXT NOT NULL | 商品名 |
 | description | TEXT | 説明文 |
-| price | INTEGER | 価格（円単位の整数。Stripe の仕様） |
-| file_path | TEXT | ファイルの保存パス or URL |
-| file_name | TEXT | 元のファイル名（ダウンロード時のファイル名に使用） |
-| file_size | INTEGER | ファイルサイズ（バイト） |
-| published | BOOLEAN | 公開中かどうか |
-| created_at | DATETIME | 作成日時 |
-| updated_at | DATETIME | 最終更新日時 |
+| price | INTEGER NOT NULL | 価格（円単位の整数。Stripe の仕様） |
+| image_path | TEXT | サムネイル画像の Storage キー |
+| file_path | TEXT | 販売ファイルの Storage キー |
+| is_published | BOOLEAN DEFAULT false | 公開中かどうか |
+| created_at | TIMESTAMPTZ | 作成日時（自動） |
+| updated_at | TIMESTAMPTZ | 最終更新日時（自動） |
 
 ---
 

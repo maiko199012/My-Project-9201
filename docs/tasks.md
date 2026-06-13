@@ -7,8 +7,11 @@
 
 ## Phase 1｜データ層の整備
 
-- [ ] **Prisma セットアップ＋スキーマ定義**
-  `prisma/schema.prisma` を作成し、`seller_profiles` / `products` / `purchases` の3テーブルを定義する。初期マイグレーションを実行してSQLiteのDBファイルを生成する。
+- [x] **Drizzle スキーマ定義＋マイグレーション適用**
+  `src/lib/db/schema.ts` に `products` テーブルを追加。`pnpm db:generate` でマイグレーションファイル（`0002_round_aqueduct.sql`）を生成し、`pnpm db:migrate` で Supabase に適用済み。
+
+- [x] **Supabase Storage バケット作成＋ポリシー設定**
+  カスタムマイグレーション（`0003_setup_storage_buckets.sql`）で `product-images`（公開）と `product-files`（非公開）を作成。Storage RLS ポリシーも設定済み。
 
 ---
 
@@ -17,14 +20,23 @@
 - [ ] **Stripe Connect Express オンボーディング（`/seller/onboarding`）**
   「売り手登録する」ボタンを押すと Stripe の Account Link URL を生成してリダイレクトする。Stripe から戻ってきたら `seller_profiles.onboarding_completed` を `true` に更新し、完了メッセージを表示する。
 
-- [ ] **商品登録フォーム（`/seller/products/new`）**
-  タイトル・説明・価格・ファイルのフォームを作成する。送信時にファイルを `public/uploads/` に保存し、`products` テーブルに INSERT する。`onboarding_completed` が `false` の場合は `/seller/onboarding` にリダイレクトする。
+- [x] **商品登録 API（`POST /api/products`）**
+  `src/app/api/products/route.ts` を実装。multipart/form-data を受け取り、Zod でテキスト検証、MIME type・サイズ検証後に Supabase Storage へアップロード、Drizzle で DB へ INSERT。DB 失敗時はアップロード済みファイルを削除してロールバック。
 
-- [ ] **商品管理一覧（`/seller/products`）**
-  ログインユーザーの `owner_id` で絞り込んだ商品一覧を表示する。公開／非公開の切り替えボタン（`published` を UPDATE）、編集リンク、削除ボタンを実装する。
+- [x] **商品登録フォーム（`/dashboard/products/new`）**
+  React Hook Form + Zod でバリデーション。`useMutation` で `POST /api/products`（multipart/form-data）を呼び出し、成功時に products クエリを invalidate して `/dashboard/products` にリダイレクト。ファイル選択 UI はドラッグ＆ドロップ風のカスタム実装。
 
-- [ ] **商品編集フォーム（`/seller/products/[id]/edit`）**
-  既存データを初期値としてフォームを表示し、送信時に `products` を UPDATE する。`product.owner_id !== ログインユーザーID` の場合は 403 を返す。
+- [x] **商品管理一覧（`/dashboard/products`）＋ GET `/api/products`**
+  `GET /api/products` で userId 絞り込み・新着順取得・imageUrl 付与を実装。ページ側は `useQuery` でカードグリッド表示。ローディング（スケルトン）・エラー・空状態も対応。各カードにサムネイル・タイトル・価格・公開バッジ・編集リンク・公開切替・削除ボタン付き。
+
+- [x] **`GET /api/products/[id]`・`PATCH /api/products/[id]`・`DELETE /api/products/[id]`**（削除 UI 含む）
+  GET: 認証→取得→所有者確認→imageUrl付与して返す。PATCH: multipart/form-data を受け取り、テキスト部分更新・画像/ファイル差し替え（旧ファイル削除）・DB UPDATE。isPublished は対象外。DB失敗時はアップ済みファイルをロールバック。
+
+- [x] **公開状態切替 API（`PATCH /api/products/[id]/publish`）＋ UI トグル**
+  JSON `{ isPublished: boolean }` を受け取り、認証→商品取得→所有者確認→DB UPDATE（isPublished + updatedAt）→更新後の商品を返す。商品管理一覧の各カードに「公開中（緑）/非公開（グレー）」ラベルと「公開する/非公開にする」トグルボタンを追加。クリック中はスピナー表示・disabled。失敗時は一覧上部に赤字エラーメッセージを表示。
+
+- [x] **商品編集フォーム（`/dashboard/products/[id]/edit`）**
+  `useQuery` で商品を取得してフォーム初期値にセット。403/404 は赤字メッセージ表示。`useMutation` で `PATCH /api/products/[id]`（multipart/form-data）。成功時は lists・detail の両クエリを invalidate して一覧へ遷移。画像・ファイルは現在のものを表示し変更時のみ送信。
 
 ---
 

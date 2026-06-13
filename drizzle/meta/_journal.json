@@ -15,6 +15,20 @@
       "when": 1777212988000,
       "tag": "0001_lock_down_public",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781331883531,
+      "tag": "0002_round_aqueduct",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1781332145005,
+      "tag": "0003_setup_storage_buckets",
+      "breakpoints": true
     }
   ]
 }
