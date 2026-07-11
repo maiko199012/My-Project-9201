@@ -45,11 +45,11 @@
 - [x] **トップページ（`/`）**
   `published = true` の商品を新着順で数件取得してカード形式で表示する。
 
-- [ ] **商品一覧（`/products`）**
-  `published = true` の全商品を一覧表示する。タイトル・価格・出品者名（`profiles` と JOIN）を表示する。
+- [x] **商品一覧（`/products`）**
+  認証不要の公開専用 API（`GET /api/public/products`）を新設。`is_published = true` の全商品を新着順で返す（filePath / userId はレスポンスに含めず）。ページは Client Component + `useQuery`、カードグリッド（デスクトップ3列/タブレット2列/スマホ1列）、空状態・ローディング・エラーのインライン表示対応。
 
-- [ ] **商品詳細（`/products/[id]`）**
-  商品の全情報と出品者名を表示する。未ログインなら「ログインして購入」、ログイン済み未購入なら「購入する」、購入済み（`purchases.status = completed`）なら「ダウンロード」ボタンを表示する。
+- [x] **商品詳細（`/products/[id]`）**
+  認証不要の公開専用 API（`GET /api/public/products/[id]`）を新設。`is_published = true` の商品のみ返し、非公開・存在しない場合は 404。ページは Client Component + `useQuery`、デスクトップ左右 2 カラム（画像左・情報右）/ スマホ縦並び。「購入する」ボタンは現在「決済機能は準備中です」メッセージを表示（STEP 5 で Stripe 連携）。説明文は `whitespace-pre-wrap` で改行反映。
 
 ---
 
