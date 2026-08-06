@@ -21,4 +21,15 @@ export const productKeys = {
 export const purchaseKeys = {
   all: ["purchases"] as const,
   status: (productId: string) => [...purchaseKeys.all, "status", productId] as const,
+  lists: () => [...purchaseKeys.all, "list"] as const,
+}
+
+export const sellerOnboardingKeys = {
+  all: ["seller-onboarding"] as const,
+  status: () => [...sellerOnboardingKeys.all, "status"] as const,
+}
+
+export const salesKeys = {
+  all: ["sales"] as const,
+  summary: () => [...salesKeys.all, "summary"] as const,
 }

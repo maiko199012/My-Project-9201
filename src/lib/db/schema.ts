@@ -11,6 +11,9 @@ export const profiles = pgTable(
       .primaryKey()
       .references(() => authUsers.id, { onDelete: "cascade" }),
     email: text("email").notNull(),
+    stripeConnectAccountId: text("stripe_connect_account_id"),
+    stripeOnboardingCompleted: boolean("stripe_onboarding_completed").notNull().default(false),
+    stripeChargesEnabled: boolean("stripe_charges_enabled").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

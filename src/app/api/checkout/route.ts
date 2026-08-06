@@ -2,13 +2,18 @@ import { and, eq } from "drizzle-orm"
 import { NextResponse, type NextRequest } from "next/server"
 
 import { db } from "@/lib/db"
-import { orders, products } from "@/lib/db/schema"
+import { orders, products, profiles } from "@/lib/db/schema"
 import { createCheckoutSchema } from "@/lib/schemas/checkout"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@/lib/supabase/server"
 
+// プラットフォーム手数料(売上に対する割合)。今はテストのため無料。
+// 導入する場合はここを変更する(例: 10 で 10%)。
+const PLATFORM_FEE_PERCENT = 0
+
 // ─── POST /api/checkout ───────────────────────────────────────────
 // purchases に buyerId を記録するためログイン必須。公開済み商品の Stripe Checkout Session を作成する。
+// Stripe Connect のデスティネーション支払いとして、売り手の Connect アカウントに送金する。
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
@@ -25,17 +30,31 @@ export async function POST(request: NextRequest) {
   }
   const { productId } = parsed.data
 
-  const [product] = await db
-    .select()
+  const [row] = await db
+    .select({
+      product: products,
+      sellerConnectAccountId: profiles.stripeConnectAccountId,
+      sellerChargesEnabled: profiles.stripeChargesEnabled,
+    })
     .from(products)
+    .innerJoin(profiles, eq(profiles.id, products.userId))
     .where(and(eq(products.id, productId), eq(products.isPublished, true)))
     .limit(1)
 
-  if (!product) {
+  if (!row) {
     return NextResponse.json({ error: "商品が見つかりません" }, { status: 404 })
+  }
+  const { product, sellerConnectAccountId, sellerChargesEnabled } = row
+
+  if (!sellerConnectAccountId || !sellerChargesEnabled) {
+    return NextResponse.json(
+      { error: "この商品の売り手は決済を受け付ける準備が完了していません" },
+      { status: 400 },
+    )
   }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? new URL(request.url).origin
+  const applicationFeeAmount = Math.round((product.price * PLATFORM_FEE_PERCENT) / 100)
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
@@ -49,6 +68,10 @@ export async function POST(request: NextRequest) {
         quantity: 1,
       },
     ],
+    payment_intent_data: {
+      application_fee_amount: applicationFeeAmount,
+      transfer_data: { destination: sellerConnectAccountId },
+    },
     success_url: `${siteUrl}/products/${product.id}/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${siteUrl}/products/${product.id}?purchase=cancelled`,
     metadata: {

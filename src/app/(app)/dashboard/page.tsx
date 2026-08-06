@@ -1,11 +1,14 @@
 "use client"
 
+import Link from "next/link"
 import { useQuery } from "@tanstack/react-query"
 import {
   ChevronRight,
+  CreditCard,
   Database,
   LayoutGrid,
   Rocket,
+  TrendingUp,
   User,
 } from "lucide-react"
 
@@ -141,6 +144,18 @@ export default function DashboardPage() {
 
           <ul className="mt-4 space-y-4">
             <NextStepCard
+              href="/dashboard/sales"
+              icon={<TrendingUp className="size-[20px]" aria-hidden="true" />}
+              title="売上ダッシュボードを見る"
+              description="商品ごとの販売数・売上金額と、最近の販売履歴を確認できます"
+            />
+            <NextStepCard
+              href="/seller/onboarding"
+              icon={<CreditCard className="size-[20px]" aria-hidden="true" />}
+              title="売り手登録する（Stripe Connect）"
+              description="商品の売上を受け取るには本人確認・口座情報の登録が必要です"
+            />
+            <NextStepCard
               icon={<LayoutGrid className="size-[22px]" aria-hidden="true" />}
               title="最初の API ルートを作る"
               description="src/app/api/hello/route.ts を編集してみましょう"
@@ -167,11 +182,12 @@ type NextStepCardProps = {
   title: string
   description?: string
   code?: string
+  href?: string
 }
 
-function NextStepCard({ icon, title, description, code }: NextStepCardProps) {
-  return (
-    <li className="relative flex items-center gap-4 rounded-xl border border-border bg-surface p-6 shadow-[0_1px_1px_rgba(0,0,0,0.05)] transition-colors hover:bg-muted/40">
+function NextStepCard({ icon, title, description, code, href }: NextStepCardProps) {
+  const content = (
+    <>
       <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand">
         {icon}
       </div>
@@ -196,6 +212,21 @@ function NextStepCard({ icon, title, description, code }: NextStepCardProps) {
         className="size-4 shrink-0 text-[#454652]"
         aria-hidden="true"
       />
+    </>
+  )
+
+  const className =
+    "relative flex items-center gap-4 rounded-xl border border-border bg-surface p-6 shadow-[0_1px_1px_rgba(0,0,0,0.05)] transition-colors hover:bg-muted/40"
+
+  return (
+    <li>
+      {href ? (
+        <Link href={href} className={className}>
+          {content}
+        </Link>
+      ) : (
+        <div className={className}>{content}</div>
+      )}
     </li>
   )
 }

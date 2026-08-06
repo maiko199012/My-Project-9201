@@ -17,8 +17,18 @@
 
 ## Phase 2｜売り手機能
 
-- [ ] **Stripe Connect Express オンボーディング（`/seller/onboarding`）**
-  「売り手登録する」ボタンを押すと Stripe の Account Link URL を生成してリダイレクトする。Stripe から戻ってきたら `seller_profiles.onboarding_completed` を `true` に更新し、完了メッセージを表示する。
+- [x] **Stripe Connect Express オンボーディング（`/seller/onboarding`）**
+  `seller_profiles` ではなく既存の `profiles` テーブルに `stripe_connect_account_id` / `stripe_onboarding_completed` / `stripe_charges_enabled` を追加（`0007_glamorous_raza.sql`）。
+  `GET /api/seller/onboarding`: Connect account があれば Stripe から `details_submitted` / `charges_enabled` を取得して DB に同期し状態を返す。
+  `POST /api/seller/onboarding`: account 未作成なら Express account を作成（`card_payments` / `transfers` capability）、Account Link を発行してリダイレクト先 URL を返す。
+  ページ側は「未登録 / 手続き未完了 / 完了」の 3 状態を表示し、未完了時は「売り手登録する」または「手続きを再開する」ボタンを表示。ダッシュボードの「次にやること」から導線を追加。
+  **Checkout 側もこれに合わせて変更**: `POST /api/checkout` は商品の売り手（`products.user_id`）の `profiles` を join し、`stripe_charges_enabled` が `true` でない場合は 400 で決済をブロックする。Stripe Checkout Session は `payment_intent_data.transfer_data.destination` に売り手の Connect アカウントを指定するデスティネーション支払いとして作成（プラットフォーム手数料 `application_fee_amount` は現在 0%、`src/app/api/checkout/route.ts` の `PLATFORM_FEE_PERCENT` で変更可能）。Webhook（`/api/stripe/webhook`）はプラットフォームアカウント上で `checkout.session.completed` を受け取る変更前と同じ実装のままで動作する（デスティネーション支払いの仕様上、送金は自動処理されイベントの受信先は変わらないため）。
+  ⚠️ 既存の公開済み商品は、売り手が Connect オンボーディングを完了するまで購入できなくなる（意図した変更）。
+  動作確認済み（テストサンドボックスで実際にオンボーディングを完了し `stripe_charges_enabled: true` を確認）。
+
+- [x] **売上ダッシュボード（`/dashboard/sales`）＋ `GET /api/sales`**
+  `GET /api/sales`: ログイン中ユーザーが売り手の商品（`products.user_id = 自分`）について、`purchases` を集計して返す。商品ごとの件数・売上は `products` から `purchases` への LEFT JOIN で売上 0 の商品も含める。直近の販売は商品名・金額・日時のみで、買い手を特定できる情報（`buyer_id` やメール等）は一切含めない。
+  ページ側は「① 売上合計金額・販売件数合計の統計カード → ② 商品ごとの売上テーブル → ③ 最近の販売一覧」の 3 段構成。金額は `¥1,000` 形式（`toLocaleString("ja-JP")`）。ダッシュボードの「次にやること」から導線を追加。
 
 - [x] **商品登録 API（`POST /api/products`）**
   `src/app/api/products/route.ts` を実装。multipart/form-data を受け取り、Zod でテキスト検証、MIME type・サイズ検証後に Supabase Storage へアップロード、Drizzle で DB へ INSERT。DB 失敗時はアップロード済みファイルを削除してロールバック。
@@ -62,8 +72,8 @@
 - [x] **Stripe Checkout セッション作成（API route）**
   `POST /api/checkout` を実装（`src/app/api/checkout/route.ts`）。**ログイン必須**（`purchases.buyer_id` を記録するため。ゲスト購入は不可に変更）。公開済み商品を検証し、`price_data` で Checkout Session を作成、`orders` に `pending` レコードを INSERT。Session の `metadata` に `productId` / `userId` / `stripePriceId`（商品が Stripe 同期済みの場合のみ）を設定。Connect は未使用（このスターターにセラーオンボーディングがないため、プラットフォームの Stripe アカウントに直接決済）。`success_url` / `cancel_url` は商品詳細ページに `?purchase=success` / `?purchase=cancelled` を付けて戻す。未ログイン時は 401 とエラーメッセージ「購入にはログインが必要です」を返す。
 
-- [ ] **決済完了ページ（`/checkout/success`）**
-  現状は専用ページの代わりに、商品詳細ページ（`/products/[id]`）が `?purchase=success` クエリを見て完了メッセージをインラインで表示している。専用ページ化は今後の課題。
+- [x] **決済完了ページ（`/products/[id]/success`）**
+  `/checkout/success` ではなく `/products/[id]/success` として実装（Checkout の `success_url` を `?session_id={CHECKOUT_SESSION_ID}` 付きでこちらに変更）。`GET /api/purchases/[productId]` を `purchased: false` の間 3 秒間隔でポーリングし、Webhook 反映前は「決済確認中です」+ 手動再確認ボタンを表示。反映後はダウンロードボタンを表示する。認可は `session_id` ではなく毎回 `purchases` テーブルの実データで判定。
 
 - [x] **Stripe Webhook 処理（`/api/stripe/webhook`）**
   `checkout.session.completed` イベントを受信したら、`stripe.webhooks.constructEvent` で署名検証したうえで以下 2 つを行う。
@@ -79,12 +89,13 @@
 
 ## Phase 5｜購入後
 
-- [ ] **購入履歴（`/purchases`）**
-  `buyer_id = ログインユーザーID` の `purchases` 一覧を表示する。商品名・金額・購入日・ダウンロードボタンを表示する。
-  ※ `purchases` テーブルと Webhook からの記録は Phase 4 で実装済み（データは既に貯まる状態）。本ページの UI 自体は未着手。
+- [x] **購入履歴 / マイページ（`GET /api/purchases` ＋ `/purchases`）**
+  `GET /api/purchases`: `buyer_id = ログインユーザーID` の `purchases` を `products` と JOIN し、商品タイトル・画像URL（`product-images` は公開バケットなので直接 `getPublicUrl`）・購入金額・購入日時を新着順で返す。
+  `/purchases` ページ: カードグリッドでサムネイル・タイトル・購入日・金額・ダウンロードボタン（`/api/downloads/[productId]` にリンク）を表示。0 件時は「まだ購入した商品はありません」+ 商品一覧へのリンク。ヘッダーにログイン時のみ「マイページ」リンクを追加（`Header.tsx`）。
 
-- [ ] **ダウンロードエンドポイント（`/api/downloads/[purchaseId]`）**
-  `purchase.buyer_id === ログインユーザーID` を確認し、不一致なら 403 を返す。一致する場合は `products.file_path` からファイルを読み込み、`Content-Disposition: attachment; filename="..."` ヘッダーと共にレスポンスとして返す。
+- [x] **ダウンロードエンドポイント（`GET /api/downloads/[productId]`）**
+  `purchaseId` ではなく `productId` を受け取り、`buyer_id = ログインユーザーID AND product_id` で `purchases` を確認（未購入・未ログインは 401/403）。ファイルを直接ストリームする代わりに、`SUPABASE_SERVICE_ROLE_KEY`（`src/lib/supabase/service.ts`）を使って `product-files`（非公開バケット）の**署名付き URL を 60 秒有効で発行し 307 リダイレクト**。ファイルの実 URL は画面にもレスポンス JSON にも出さない。
+  `product-files` バケットには authenticated/anon 向けの SELECT ポリシーがない設計（`0003_setup_storage_buckets.sql` のコメント通り）ため、この用途でのみ RLS を回避するサービスロールキーを追加導入した。
 
 ---
 

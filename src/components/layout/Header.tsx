@@ -45,6 +45,12 @@ export function Header({ email }: HeaderProps) {
         <div className="flex items-center gap-3 sm:gap-4">
           {email ? (
             <>
+              <Link
+                href="/purchases"
+                className="hidden text-sm font-medium text-foreground transition-colors hover:text-brand sm:inline-block"
+              >
+                マイページ
+              </Link>
               <button
                 type="button"
                 onClick={handleLogout}
