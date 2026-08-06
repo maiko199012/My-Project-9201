@@ -55,21 +55,33 @@
 
 ## Phase 4｜決済
 
-- [ ] **Stripe Checkout セッション作成（API route）**
-  `POST /api/checkout` を実装する。`purchases` に `pending` レコードを INSERT し、Stripe Checkout Session を Connect アカウント向けに作成して URL を返す。`success_url` に `stripe_session_id` をクエリパラメータとして含める。
+- [x] **Stripe 商品カタログ同期（`scripts/sync-stripe-products.ts`）**
+  `products` テーブルに `stripe_product_id` / `stripe_price_id`（nullable text）を追加（`0005_elite_living_tribunal.sql`）。既存商品を全件読み取り、未同期（`stripeProductId` が null）のものだけ Stripe Product + Price（`currency: jpy`）を作成して DB に ID を保存する冪等スクリプト。実行済みで既存 3 商品を同期済み。再実行コマンド: `pnpm sync:stripe-products`。
+  ※ 現在の Checkout（下記）は `price_data` で都度金額指定しており、この Price ID はまだ参照していない。将来 Checkout 側を事前作成済み Price 参照に切り替える場合はこの ID を使う。
+
+- [x] **Stripe Checkout セッション作成（API route）**
+  `POST /api/checkout` を実装（`src/app/api/checkout/route.ts`）。**ログイン必須**（`purchases.buyer_id` を記録するため。ゲスト購入は不可に変更）。公開済み商品を検証し、`price_data` で Checkout Session を作成、`orders` に `pending` レコードを INSERT。Session の `metadata` に `productId` / `userId` / `stripePriceId`（商品が Stripe 同期済みの場合のみ）を設定。Connect は未使用（このスターターにセラーオンボーディングがないため、プラットフォームの Stripe アカウントに直接決済）。`success_url` / `cancel_url` は商品詳細ページに `?purchase=success` / `?purchase=cancelled` を付けて戻す。未ログイン時は 401 とエラーメッセージ「購入にはログインが必要です」を返す。
 
 - [ ] **決済完了ページ（`/checkout/success`）**
-  クエリパラメータの `session_id` で `purchases` を引き、商品名とダウンロードボタンを表示する。購入履歴へのリンクも設置する。
+  現状は専用ページの代わりに、商品詳細ページ（`/products/[id]`）が `?purchase=success` クエリを見て完了メッセージをインラインで表示している。専用ページ化は今後の課題。
 
-- [ ] **Stripe Webhook 処理（`/api/webhooks/stripe`）**
-  `checkout.session.completed` イベントを受信したら、対応する `purchases` の `status` を `completed` に UPDATE する。署名検証（`stripe.webhooks.constructEvent`）を必ず実装する。
+- [x] **Stripe Webhook 処理（`/api/stripe/webhook`）**
+  `checkout.session.completed` イベントを受信したら、`stripe.webhooks.constructEvent` で署名検証したうえで以下 2 つを行う。
+  1. 対応する `orders` の `status` を `paid` に UPDATE（決済試行の内部トラッキング用）。
+  2. `purchases`（買い手向けの確定購入記録。下記参照）へ INSERT。
+  ローカル確認は `stripe listen --forward-to localhost:3000/api/stripe/webhook` で実施。
+
+- [x] **`purchases` テーブル＋購入記録の冪等保存**
+  `src/lib/db/schema.ts` に `purchases` テーブルを追加（`buyer_id` は `authUsers.id` への FK、`product_id` は `products.id` への FK、`amount`、`stripe_checkout_session_id`（UNIQUE）、`stripe_price_id`、`created_at`）。マイグレーション: `0006_reflective_blink.sql`。
+  Webhook の `checkout.session.completed` 内で Checkout Session の `metadata.userId` / `metadata.productId` / `metadata.stripePriceId` を読み取り `purchases` に INSERT。**いずれか欠けている場合は INSERT せず `console.error` にセッション ID と欠けているフィールドを記録**（決済自体は成功しているため 200 は返す）。`stripe_checkout_session_id` の UNIQUE 制約 + `onConflictDoNothing` により、同じ Webhook イベントが複数回配信されても重複保存されない（冪等性）。
 
 ---
 
 ## Phase 5｜購入後
 
 - [ ] **購入履歴（`/purchases`）**
-  `buyer_id = ログインユーザーID` かつ `status = completed` の購入一覧を表示する。商品名・金額・購入日・ダウンロードボタンを表示する。
+  `buyer_id = ログインユーザーID` の `purchases` 一覧を表示する。商品名・金額・購入日・ダウンロードボタンを表示する。
+  ※ `purchases` テーブルと Webhook からの記録は Phase 4 で実装済み（データは既に貯まる状態）。本ページの UI 自体は未着手。
 
 - [ ] **ダウンロードエンドポイント（`/api/downloads/[purchaseId]`）**
   `purchase.buyer_id === ログインユーザーID` を確認し、不一致なら 403 を返す。一致する場合は `products.file_path` からファイルを読み込み、`Content-Disposition: attachment; filename="..."` ヘッダーと共にレスポンスとして返す。

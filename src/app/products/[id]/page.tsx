@@ -2,8 +2,8 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { useParams } from "next/navigation"
-import { useQuery } from "@tanstack/react-query"
+import { useParams, useSearchParams } from "next/navigation"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { ArrowLeft, Package, Loader2 } from "lucide-react"
 
 import { publicProductKeys } from "@/lib/query-keys"
@@ -24,15 +24,45 @@ async function fetchPublicProduct(id: string): Promise<PublicProduct> {
   return json.data
 }
 
+async function createCheckoutSession(productId: string): Promise<string> {
+  const res = await fetch("/api/checkout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ productId }),
+  })
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(body.error ?? "決済の開始に失敗しました")
+  }
+  const json = (await res.json()) as { data: { url: string } }
+  return json.data.url
+}
+
 // ─── ページ ────────────────────────────────────────────────────────
 export default function ProductDetailPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <ProductDetailContent />
+    </React.Suspense>
+  )
+}
+
+function ProductDetailContent() {
   const { id } = useParams<{ id: string }>()
-  const [showPendingMsg, setShowPendingMsg] = React.useState(false)
+  const searchParams = useSearchParams()
+  const purchaseStatus = searchParams.get("purchase")
 
   const { data: product, isLoading, error } = useQuery<PublicProduct>({
     queryKey: publicProductKeys.detail(id),
     queryFn: () => fetchPublicProduct(id),
     retry: false,
+  })
+
+  const checkoutMutation = useMutation({
+    mutationFn: () => createCheckoutSession(id),
+    onSuccess: (url) => {
+      window.location.href = url
+    },
   })
 
   const is404 = (error as (Error & { status?: number }) | null)?.status === 404
@@ -111,16 +141,22 @@ export default function ProductDetailPage() {
 
                 {/* 購入ボタン */}
                 <div className="flex flex-col gap-2">
+                  {purchaseStatus === "cancelled" && (
+                    <p className="rounded-md bg-gray-50 px-4 py-2 text-center text-sm text-gray-600">
+                      決済がキャンセルされました
+                    </p>
+                  )}
                   <button
                     type="button"
-                    onClick={() => setShowPendingMsg(true)}
-                    className="w-full rounded-lg bg-indigo-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+                    onClick={() => checkoutMutation.mutate()}
+                    disabled={checkoutMutation.isPending}
+                    className="w-full rounded-lg bg-indigo-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-60"
                   >
-                    購入する
+                    {checkoutMutation.isPending ? "処理中..." : "購入する"}
                   </button>
-                  {showPendingMsg && (
-                    <p className="text-center text-sm text-gray-500">
-                      決済機能は準備中です
+                  {checkoutMutation.isError && (
+                    <p className="text-center text-sm text-red-600">
+                      {(checkoutMutation.error as Error).message}
                     </p>
                   )}
                   <p className="text-center text-xs text-gray-400">

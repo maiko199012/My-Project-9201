@@ -17,3 +17,8 @@ export const productKeys = {
     [...productKeys.lists(), filters ?? {}] as const,
   detail: (id: string) => [...productKeys.all, "detail", id] as const,
 }
+
+export const purchaseKeys = {
+  all: ["purchases"] as const,
+  status: (productId: string) => [...purchaseKeys.all, "status", productId] as const,
+}
